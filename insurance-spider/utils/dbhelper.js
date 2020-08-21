@@ -1,0 +1,61 @@
+var mysql = require('mysql')
+var utils = require('./index')
+
+const option = {
+  host: '',
+  user: '',
+  password: '',
+  port: '',
+  database: ''
+}
+
+// 创建数据库连接池
+const pool = mysql.createPool(option)
+
+var dbOperation = function (sql ,values) {
+  return new Promise(function (resolve, reject) {
+    pool.getConnection(function (err, connection) {
+      if (err) {
+        reject(err)
+      } else {
+        connection.query(sql, values, function (err, rows) {
+          if (err) {
+            reject(err)
+          } else {
+            resolve(rows)
+          }
+          connection.release()
+        })
+      }
+    })
+  })
+}
+
+
+// 检查表中是否已存在该文章
+var haveArticle = function (item) {
+  console.log('check: ' + item)
+  const querySql = 'select 1 from articles where url = ? limit 1'
+  const values = [item]
+  var result = dbOperation(querySql, values)
+  return result
+}
+
+
+// 筛选出数据库中不存在的文章列表
+var filterArticle = async function (arr) {
+  var newArr = []
+  for (let i = 0, l = arr.length; i < l; i++) {
+    haveArticle(arr[i]).then(function (data) {
+      if (data.length === 0) {
+        newArr.push(arr[i])
+      }
+    })
+    await utils.sleep(50)
+  }
+  return newArr
+} 
+
+
+exports.dbOperation = dbOperation
+exports.filterArticle = filterArticle
