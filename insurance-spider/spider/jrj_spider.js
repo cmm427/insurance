@@ -1,14 +1,10 @@
-var express = require('express')
-var superagent = require('superagent')
 var cheerio = require('cheerio')
 var iconv = require('iconv-lite')
 var BufferHelper = require('bufferhelper')
 var dbhelper = require('../utils/dbhelper')
 var utils = require('../utils/index')
-var http = require('http')
+var axios = require('axios')
 
-
-var app = express()
 
 // 金融界
 var jrjUrl = 'http://insurance.jrj.com.cn/xwk/'
@@ -36,17 +32,18 @@ var getPageUrls = function (pageUrl) {
   console.log('getPageUrls: ' + pageUrl)
   var articleUrls = []
   return new Promise(function (resolve, reject) {
-    superagent.get(pageUrl).end(function (err, res) {
-      if (err) {
-        reject(err)
-      }
-      var $ = cheerio.load(res.text)
+    axios.get(pageUrl)
+    .then(res => {
+      var $ = cheerio.load(res.data)
       $('ul[class=list]>li>a').each(function (idx, element) {
         var $element = $(element)
         console.log(idx, $element.attr('href'))
         articleUrls.push($element.attr('href'))
       })
       resolve(articleUrls)
+    })
+    .catch (err => {
+      reject(err)
     })
   })
 }
@@ -67,16 +64,15 @@ var getArticleDetail = function (article) {
     // iconv-lite 模块能配合 http 模块以及 request 模块使用， 却不能直接和 superAgent 模块使用
     // 因为 superAgent 是以 utf8 去取数据，然后再用 iconv 转也是不行的
     // https://www.cnblogs.com/chris-oil/p/12602039.html
-    http.get(article, function (res) {
+    axios.get(article, {
+      responseType: 'stream'
+    }).then(res => {
       var bufferHelper = new BufferHelper()
-
-      // 处理 gb2312 编码
-      res.on('data', function (chunk) {
+      res.data.on('data', chunk => {
         bufferHelper.concat(chunk)
       })
-      res.on('end', function () {
+      res.data.on('end', () => {
         var html = iconv.decode(bufferHelper.toBuffer(), 'GBK')
-
         var $ = cheerio.load(html, {
           decodeEntities: false
         })
@@ -96,26 +92,19 @@ var getArticleDetail = function (article) {
 }
 
 
-app.get('/', async function(req, res, next) {
+exports.jrj_spider = async function () {
   try {
     var pages = getPages()
     var articles = await utils.asyncQueueTask(pages, getPageUrls)
     var newArticles = await dbhelper.filterArticle(articles)
     var articleDetailList = await utils.asyncQueueTask(newArticles, getArticleDetail)
-    console.log(articleDetailList)
     const addSql = 'insert into articles (title, url, content, source, created, creator, updatetime) values(?,?,?,?,?,?,?)'
     articleDetailList.map(item => {
       var values = [item.title, item.href, item.content, item.source, item.createdAt || utils.formatDate(Date()), item.creator, utils.formatDate(Date())]
       console.log(values)
       dbhelper.dbOperation(addSql, values)
     })
-    res.send(articleDetailList)
   } catch (err) {
     console.log(err)
   }
-})
-
-
-app.listen(9092, function() {
-  console.log('jrj is listening at port 9092')
-})
+}

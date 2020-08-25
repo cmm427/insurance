@@ -1,34 +1,22 @@
 var axios = require('axios')
 var cheerio = require('cheerio')
-var url = require('url')
 var dbhelper = require('../utils/dbhelper')
 var utils = require('../utils/index')
 
 
-// 中国银行保险报网
-var sinoinsUrl = 'http://xw.sinoins.com/node_125.htm'
+// 证券日报
 
 // 根据入口url，获取请求页面列表
-var getPages = function (entryUrl) {
-  console.log('getPages: ' + entryUrl)
+var getPages = function () {
+  console.log('getPages: ')
   var urls = []
-  return new Promise(function (resolve, reject) {
-    axios.get(entryUrl)
-    .then(res => {
-      var $ = cheerio.load(res.data)
-      var $element = $('#displaypagenum > center > a:nth-child(5)')
-      var shortUrl = $element.attr('href')
-      var pageNums = parseInt(shortUrl.slice(shortUrl.lastIndexOf('_') + 1, shortUrl.indexOf('.')))
-      for (var i = 2; i <= pageNums; i++) {
-        urls.push(url.resolve(entryUrl, 'node_125_' + i + '.htm'))
-      }
-      urls.unshift(entryUrl)
-      resolve(urls)
-    })
-    .catch(err => {
-      reject(err)
-    })
-  })
+  // 只抓取最近15页的数据
+  for (var i = 1; i < 16; i++) {
+    var url = 'http://www.zqrb.cn/jrjg/insurance/index_p' + i + '.html'
+    urls.push(url)
+  }
+  console.log(urls)
+  return urls
 }
 
 // 获取每个页面的文章链接
@@ -39,12 +27,12 @@ var getPageUrls = function (pageUrl) {
     axios.get(pageUrl)
     .then(res => {
       var $ = cheerio.load(res.data)
-      $('ul[class=nList] a').each(function (idx, element) {
+      $('a[class=lista]').each(function (idx, element) {
         var $element = $(element)
         console.log(idx, $element.attr('href'))
-        articleUrls.push(url.resolve(sinoinsUrl, $element.attr('href')))
+        articleUrls.push($element.attr('href'))
       })
-      resolve(articleUrls)
+      return resolve(articleUrls)
     })
     .catch(err => {
       reject(err)
@@ -67,15 +55,16 @@ var getArticleDetail = function (article) {
     axios.get(article)
     .then(res => {
       var $ = cheerio.load(res.data)
-      var info = $('div[class=artInfo]').text()
-      articleInfo.title = $('h1[class=artTitle]').text()
+      var info = $('div[class=info_news]').text()
+      var infoArr = info.split('来源：')
+      articleInfo.title = $('div[class=news_content] > h1').text()
       articleInfo.href = article
-      articleInfo.content = $('div[class=text-t] > p:nth-child(2)').text()
-      articleInfo.source = info ? /来源：(.*)/.exec(info)[1].trim() : ''
-      articleInfo.createdAt = info ? /发布时间：(.*)作者/.exec(info)[1].trim() : ''
-      articleInfo.creator = info ? /作者：(.*)来源/.exec(info)[1].trim() : ''
+      articleInfo.content = $('div[class=content-lcq] > p:nth-child(2)').text().trim()
+      articleInfo.source = infoArr[1].split(' ')[0]
+      articleInfo.createdAt = infoArr[0].trim() + ':00'
+      articleInfo.creator = infoArr[1].slice(infoArr[1].split(' ')[0].trim().length)
       console.log('Detail: ' + JSON.stringify(articleInfo))
-      resolve(articleInfo)
+      return resolve(articleInfo)
     })
     .catch(err => {
       reject(err)
@@ -84,13 +73,12 @@ var getArticleDetail = function (article) {
 }
 
 
-exports.sinoins_spider = async function () {
+exports.zqrb_spider = async function () {
   try {
-    var pages = await getPages(sinoinsUrl)
+    var pages = await getPages()
     var articles = await utils.asyncQueueTask(pages, getPageUrls)
     var newArticles = await dbhelper.filterArticle(articles)
     var articleDetailList = await utils.asyncQueueTask(newArticles, getArticleDetail)
-    console.log(articleDetailList)
     const addSql = 'insert into articles (title, url, content, source, created, creator, updatetime) values(?,?,?,?,?,?,?)'
     articleDetailList.map(item => {
       var values = [item.title, item.href, item.content, item.source, item.createdAt || utils.formatDate(Date()), item.creator, utils.formatDate(Date())]
