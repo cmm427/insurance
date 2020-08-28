@@ -217,4 +217,16 @@ export default {
   border: 1px solid #d5d6d8;
   border-radius: 4px;
 }
+a:link {
+  color: #934FFF;
+}
+a:visited {
+  color: darkgrey;
+}
+a:hover {
+  color: deeppink;
+}
+a:active {
+  color: #ffffff;
+}
 </style>
