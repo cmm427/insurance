@@ -79,7 +79,7 @@ exports.zqrb_spider = async function () {
     var articles = await utils.asyncQueueTask(pages, getPageUrls)
     var newArticles = await dbhelper.filterArticle(articles)
     var articleDetailList = await utils.asyncQueueTask(newArticles, getArticleDetail)
-    const addSql = 'insert into articles (title, url, content, source, created, creator, updatetime) values(?,?,?,?,?,?,?)'
+    const addSql = dbhelper.objSQL.addSQL
     articleDetailList.map(item => {
       var values = [item.title, item.href, item.content, item.source, item.createdAt || utils.formatDate(Date()), item.creator, utils.formatDate(Date())]
       console.log(values)

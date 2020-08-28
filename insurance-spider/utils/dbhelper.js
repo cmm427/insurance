@@ -1,6 +1,14 @@
 var mysql = require('mysql')
 var utils = require('./index')
 
+
+// sql 语句
+const objSQL = {
+  addSQL: 'insert into articles (title, url, content, source, created, creator, updatetime) values(?,?,?,?,?,?,?)',
+  querySQL: 'select 1 from articles where url = ? limit 1'
+}
+
+
 const option = {
   host: '',
   user: '',
@@ -35,7 +43,7 @@ var dbOperation = function (sql ,values) {
 // 检查表中是否已存在该文章
 var haveArticle = function (item) {
   console.log('check: ' + item)
-  const querySql = 'select 1 from articles where url = ? limit 1'
+  const querySql = objSQL.querySQL
   const values = [item]
   var result = dbOperation(querySql, values)
   return result
@@ -57,5 +65,6 @@ var filterArticle = async function (arr) {
 } 
 
 
+exports.objSQL = objSQL
 exports.dbOperation = dbOperation
 exports.filterArticle = filterArticle
