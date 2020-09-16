@@ -65,6 +65,21 @@ var filterArticle = async function (arr) {
 } 
 
 
+// 根据文章详情列表，筛选出数据库中不存在的详情列表
+var filterArticleDetails = async function (arrDetails) {
+  var newArrDetails = []
+  for (let i = 0, l = arrDetails.length; i < l; i++) {
+    haveArticle(arrDetails[i].target).then(function (data) {
+      if (data.length === 0) {
+        newArrDetails.push(arrDetails[i])
+      }
+    })
+    await utils.sleep(50)
+  }
+  return newArrDetails
+}
+
 exports.objSQL = objSQL
 exports.dbOperation = dbOperation
 exports.filterArticle = filterArticle
+exports.filterArticleDetails = filterArticleDetails
