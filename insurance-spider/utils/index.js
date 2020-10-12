@@ -15,7 +15,7 @@ exports.formatDate = function (nows) {
 // 格式化日期-月份：202008
 exports.formatMonth = function (nows) {
   var now = new Date(nows)
-  var year = now.getFullYear()
+  var year = now.getFullYear() + ''
   var month = now.getMonth() + 1 < 10 ? '0' + (now.getMonth() + 1) : now.getMonth() + 1
   return (
     year + month + ''
@@ -26,7 +26,7 @@ exports.formatMonth = function (nows) {
 // 格式化日期-天: 20200818
 exports.formatDay = function (nows) {
   var now = new Date(nows)
-  var year = now.getFullYear()
+  var year = now.getFullYear() + ''
   var month = now.getMonth() + 1 < 10 ? '0' + (now.getMonth() + 1) : now.getMonth() + 1
   var date = now.getDate() < 10 ? '0' + now.getDate() : now.getDate()
   return (
